@@ -10,7 +10,28 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
+    <div id="auth-screen" class="auth-container fade-in">
+        <div class="auth-card">
+            <div class="logo justify-center">
+                <i data-lucide="brain" class="logo-icon"></i>
+                <h2>MindPath</h2>
+            </div>
+            <p class="auth-subtitle">Welcome back. Please log in to continue.</p>
+            
+            <div class="auth-tabs">
+                <button id="tab-login" class="active" onclick="switchAuthMode(true)">Log In</button>
+                <button id="tab-register" onclick="switchAuthMode(false)">Sign Up</button>
+            </div>
+
+            <input type="text" id="username" class="auth-input" placeholder="Username">
+            <input type="password" id="password" class="auth-input" placeholder="Password">
+            <p id="auth-error" class="error-text hidden"></p>
+            
+            <button class="btn-primary full-width" onclick="handleAuth()" id="auth-btn">Log In</button>
+        </div>
+    </div>
+
+    <div id="app-screen" class="app-container hidden fade-in">
         <aside class="sidebar">
             <div class="logo">
                 <i data-lucide="brain" class="logo-icon"></i>
@@ -20,18 +41,15 @@
                 <button class="nav-btn active" onclick="switchTab('dashboard')"><i data-lucide="layout-dashboard"></i> Dashboard</button>
                 <button class="nav-btn" onclick="switchTab('journal')"><i data-lucide="pen-line"></i> Journal</button>
                 <button class="nav-btn" onclick="switchTab('analytics')"><i data-lucide="trending-up"></i> Analytics</button>
-                <button class="nav-btn" onclick="switchTab('resources')"><i data-lucide="book-open"></i> Resources</button>
+                <button class="nav-btn logout" onclick="logout()"><i data-lucide="log-out"></i> Sign Out</button>
             </nav>
         </aside>
 
         <main class="content-area">
-            
             <section id="dashboard" class="tab-content active fade-in">
                 <header class="page-header">
                     <h1>Welcome Back</h1>
-                    <p>Here is your mental wellness overview for today.</p>
                 </header>
-                
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon purple"><i data-lucide="activity"></i></div>
@@ -43,12 +61,11 @@
                     <div class="stat-card">
                         <div class="stat-icon blue"><i data-lucide="calendar-days"></i></div>
                         <div class="stat-info">
-                            <h3>Entries This Week</h3>
+                            <h3>Entries</h3>
                             <p id="dash-entry-count">0</p>
                         </div>
                     </div>
                 </div>
-
                 <div class="recent-activity card">
                     <h3>Recent Reflections</h3>
                     <div id="recent-logs-container" class="log-list"></div>
@@ -58,17 +75,11 @@
             <section id="journal" class="tab-content hidden fade-in">
                 <header class="page-header">
                     <h1>Express Yourself</h1>
-                    <p>Write down your thoughts. Our AI will analyze your emotional state.</p>
                 </header>
                 <div class="card journal-box">
                     <textarea id="journal-input" placeholder="How are you feeling right now? Type your thoughts here..."></textarea>
-                    <div class="journal-actions">
-                        <button class="btn-primary" onclick="submitJournal()">
-                            <i data-lucide="sparkles"></i> Analyze & Save
-                        </button>
-                    </div>
+                    <button class="btn-primary" onclick="submitJournal()"><i data-lucide="sparkles"></i> Analyze & Save</button>
                 </div>
-                
                 <div id="analysis-result" class="card result-card hidden slide-up">
                     <h3 id="result-sentiment">Analysis Complete</h3>
                     <p id="result-suggestion"></p>
@@ -76,33 +87,9 @@
             </section>
 
             <section id="analytics" class="tab-content hidden fade-in">
-                <header class="page-header">
-                    <h1>Mood Trends</h1>
-                    <p>Track your emotional journey over time.</p>
-                </header>
-                <div class="card chart-container">
-                    <canvas id="moodChart"></canvas>
-                </div>
+                <header class="page-header"><h1>Mood Trends</h1></header>
+                <div class="card chart-container"><canvas id="moodChart"></canvas></div>
             </section>
-
-            <section id="resources" class="tab-content hidden fade-in">
-                <header class="page-header">
-                    <h1>Wellness Activities</h1>
-                </header>
-                <div class="stats-grid">
-                    <div class="card resource-card">
-                        <i data-lucide="wind"></i>
-                        <h3>Breathing Exercise</h3>
-                        <p>4-7-8 technique for instant calm.</p>
-                    </div>
-                    <div class="card resource-card">
-                        <i data-lucide="headphones"></i>
-                        <h3>Guided Meditation</h3>
-                        <p>10 minutes of guided mindfulness.</p>
-                    </div>
-                </div>
-            </section>
-
         </main>
     </div>
     <script src="script.js"></script>
