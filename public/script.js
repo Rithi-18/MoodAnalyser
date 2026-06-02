@@ -1,17 +1,36 @@
 lucide.createIcons();
 
+// --- STATE ---
+let currentUser = null;
 let moodHistory = [];
-let chartInstance = null;
-let currentUserId = null;
 let isLoginMode = true;
 
-const suggestions = {
-    Positive: "You're radiating good energy! Keep nurturing whatever is bringing you joy today.",
-    Negative: "It sounds like a heavy day. Remember to be kind to yourself. Take a slow, deep breath.",
-    Neutral: "A balanced state of mind. It's a great time to focus on steady, productive tasks."
-};
+// Chart Instances
+let dashChart, repLineChart, repDoughnutChart;
 
-// --- AUTHENTICATION LOGIC ---
+// --- VIEW NAVIGATION ---
+function showView(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+    document.getElementById(viewId).classList.remove('hidden');
+}
+
+function switchTab(tabId) {
+    document.querySelectorAll('.app-tab').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.nav-btn:not(.logout)').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.remove('hidden');
+    event.currentTarget.classList.add('active');
+
+    if(tabId === 'tab-dashboard') updateDashboard();
+    if(tabId === 'tab-reports') updateReports();
+}
+
+function selectMood(el, mood) {
+    document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+// --- AUTHENTICATION ---
 function switchAuthMode(isLogin) {
     isLoginMode = isLogin;
     document.getElementById('tab-login').classList.toggle('active', isLogin);
@@ -42,10 +61,15 @@ async function handleAuth() {
         const result = await response.json();
 
         if (result.success) {
-            currentUserId = result.userId;
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('app-screen').classList.remove('hidden');
-            fetchHistory(); // Load data specifically for this user
+            currentUser = { id: result.userId, username: username };
+            
+            // Set Dynamic User Names
+            document.getElementById('user-avatar').innerText = username.charAt(0).toUpperCase();
+            document.getElementById('display-username').innerText = username;
+            document.getElementById('greeting-name').innerText = `Good morning, ${username.split(' ')[0]}`;
+            
+            showView('app-screen');
+            fetchHistory(); 
         } else {
             errorText.innerText = result.error;
             errorText.classList.remove('hidden');
@@ -57,106 +81,95 @@ async function handleAuth() {
 }
 
 function logout() {
-    currentUserId = null;
+    currentUser = null;
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
-    document.getElementById('app-screen').classList.add('hidden');
-    document.getElementById('auth-screen').classList.remove('hidden');
+    showView('landing-page');
 }
 
-// --- APP LOGIC ---
-function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-    document.querySelectorAll('.nav-btn:not(.logout)').forEach(b => b.classList.remove('active'));
-    
-    document.getElementById(tabId).classList.remove('hidden');
-    event.currentTarget.classList.add('active');
-
-    if(tabId === 'dashboard') updateDashboardUI();
-    if(tabId === 'analytics') renderChart();
-}
-
+// --- DATA FETCHING ---
 async function submitJournal() {
-    const textInput = document.getElementById('journal-input');
-    const text = textInput.value.trim();
+    const text = document.getElementById('journal-input').value.trim();
     if (!text) return;
 
     try {
         const response = await fetch('/api/journal', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUserId, text })
+            body: JSON.stringify({ userId: currentUser.id, text })
         });
         const result = await response.json();
 
         if (result.success) {
-            textInput.value = '';
-            document.getElementById('analysis-result').classList.remove('hidden');
-            document.getElementById('result-sentiment').innerText = `Analysis Saved!`;
-            document.getElementById('result-suggestion').innerText = "Check your Analytics tab to see how this affects your overall trend.";
-            await fetchHistory();
+            document.getElementById('journal-input').value = '';
+            switchTab('tab-analysis'); // Redirect to analysis
+            fetchHistory();
         }
     } catch (error) {
-        console.error("Failed to save journal:", error);
+        console.error("Journal Error:", error);
     }
 }
 
 async function fetchHistory() {
     try {
-        const response = await fetch(`/api/history/${currentUserId}`);
+        const response = await fetch(`/api/history/${currentUser.id}`);
         const result = await response.json();
         if (result.success) {
             moodHistory = result.data;
-            updateDashboardUI();
-            if(!document.getElementById('analytics').classList.contains('hidden')) renderChart();
+            updateDashboard();
+            updateJournalHistory();
         }
     } catch (error) {
-        console.error("Failed to fetch history:", error);
+        console.error("History Error:", error);
     }
 }
 
-function updateDashboardUI() {
-    const container = document.getElementById('recent-logs-container');
-    document.getElementById('dash-entry-count').innerText = moodHistory.length;
-    
-    if (moodHistory.length > 0) {
-        document.getElementById('dash-current-mood').innerText = moodHistory[0].sentiment;
-        container.innerHTML = moodHistory.slice(0, 5).map(log => `
-            <div class="log-item">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span class="log-badge badge-${log.sentiment}">${log.sentiment}</span>
-                    <span class="log-date">${new Date(log.logged_at).toLocaleDateString()}</span>
+// --- UI UPDATERS ---
+function updateJournalHistory() {
+    const container = document.getElementById('journal-history');
+    if (moodHistory.length === 0) {
+        container.innerHTML = '<p class="text-muted mt-4">No entries yet.</p>';
+        return;
+    }
+
+    container.innerHTML = moodHistory.map(log => `
+        <div class="journal-entry">
+            <div class="journal-entry-header">
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div class="score-badge">${log.score > 0 ? '+' : ''}${log.score}</div>
+                    <div>
+                        <h4 class="font-bold">${log.sentiment}</h4>
+                        <p class="text-muted text-sm">${new Date(log.logged_at).toLocaleString()}</p>
+                    </div>
                 </div>
-                <p class="log-text">${log.journal_text}</p>
             </div>
-        `).join('');
-    } else {
-        container.innerHTML = '<p class="log-text">No entries yet. Head over to the Journal tab.</p>';
-        document.getElementById('dash-current-mood').innerText = 'N/A';
-    }
+            <p class="mt-2 text-sm">${log.journal_text}</p>
+        </div>
+    `).join('');
 }
 
-function renderChart() {
-    const ctx = document.getElementById('moodChart').getContext('2d');
-    const dates = moodHistory.map(log => new Date(log.logged_at).toLocaleDateString()).reverse();
+function updateDashboard() {
+    const dates = moodHistory.map(log => new Date(log.logged_at).toLocaleDateString(undefined, {weekday: 'short'})).reverse();
     const scores = moodHistory.map(log => log.score).reverse();
 
-    if (chartInstance) chartInstance.destroy();
-
-    chartInstance = new Chart(ctx, {
+    if (dashChart) dashChart.destroy();
+    
+    const ctx = document.getElementById('dashboardChart').getContext('2d');
+    dashChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: dates.length ? dates : ['No Data'],
+            labels: dates.length ? dates : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
             datasets: [{
-                label: 'Mood Progression',
-                data: scores.length ? scores : [0],
+                data: scores.length ? scores : [0,0,0,0,0],
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                borderWidth: 3,
+                borderWidth: 2,
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#4f46e5',
-                pointRadius: 5
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#6366f1',
+                pointBorderWidth: 2,
+                pointRadius: 4
             }]
         },
         options: {
@@ -164,8 +177,55 @@ function renderChart() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true, suggestedMin: -3, suggestedMax: 3 }
+                y: { display: false, min: -5, max: 5 },
+                x: { grid: { display: false }, border: {display: false} }
             }
         }
+    });
+}
+
+function updateReports() {
+    // Line Chart
+    const dates = moodHistory.map(log => new Date(log.logged_at).toLocaleDateString(undefined, {weekday: 'short'})).reverse();
+    const scores = moodHistory.map(log => log.score).reverse();
+
+    if (repLineChart) repLineChart.destroy();
+    repLineChart = new Chart(document.getElementById('reportsLineChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: dates.length ? dates : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+            datasets: [{
+                data: scores.length ? scores : [0,0,0,0,0],
+                borderColor: '#6366f1',
+                borderWidth: 2,
+                tension: 0.4,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#6366f1',
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
+    });
+
+    // Doughnut Chart
+    let pos = 0, neg = 0, neu = 0;
+    moodHistory.forEach(log => {
+        if(log.sentiment === 'Positive') pos++;
+        else if (log.sentiment === 'Negative') neg++;
+        else neu++;
+    });
+
+    if (repDoughnutChart) repDoughnutChart.destroy();
+    repDoughnutChart = new Chart(document.getElementById('reportsDoughnutChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Contentment', 'Anxiety', 'Neutral'],
+            datasets: [{
+                data: moodHistory.length ? [pos, neg, neu] : [1,1,1],
+                backgroundColor: ['#6366f1', '#f59e0b', '#2dd4bf'],
+                borderWidth: 0,
+                cutout: '75%'
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 }
