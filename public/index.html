@@ -11,7 +11,6 @@
 </head>
 <body>
 
-    <!-- LANDING PAGE -->
     <div id="landing-page" class="view-section active fade-in">
         <nav class="top-nav">
             <div class="logo"><i data-lucide="brain"></i> <b>MindPath</b></div>
@@ -31,17 +30,10 @@
             <p>MindPath uses clinical-grade AI to track your emotional patterns, detect stress before it builds, and guide you toward genuine, lasting mental health.</p>
             <div class="hero-actions">
                 <button class="btn-primary" onclick="showView('auth-screen')">Open the tracker &rarr;</button>
-                <button class="btn-secondary">How it works</button>
-            </div>
-            <div class="hero-stats">
-                <div><h2>94.7%</h2><p>Report improved mood</p></div>
-                <div><h2>2,381</h2><p>Active this week</p></div>
-                <div><h2>18 days</h2><p>Avg journal streak</p></div>
             </div>
         </header>
     </div>
 
-    <!-- AUTHENTICATION SCREEN -->
     <div id="auth-screen" class="view-section auth-bg hidden fade-in">
         <div class="auth-card">
             <div class="logo justify-center"><i data-lucide="brain"></i> <h2>MindPath</h2></div>
@@ -57,7 +49,6 @@
         </div>
     </div>
 
-    <!-- MAIN APP DASHBOARD -->
     <div id="app-screen" class="view-section app-layout hidden fade-in">
         <aside class="sidebar">
             <div class="logo"><i data-lucide="brain"></i> <h2>MindPath</h2></div>
@@ -66,7 +57,7 @@
                 <div class="avatar" id="user-avatar">U</div>
                 <div class="user-info">
                     <h4 id="display-username">User</h4>
-                    <p>9-day streak</p>
+                    <p id="sidebar-streak">0-day streak</p>
                 </div>
             </div>
 
@@ -84,109 +75,75 @@
         </aside>
 
         <main class="main-content">
-            
-            <!-- DASHBOARD TAB -->
             <section id="tab-dashboard" class="app-tab active fade-in">
                 <div class="header-row">
                     <div>
-                        <h1 id="greeting-name">Good morning, User</h1>
-                        <p class="subtitle">Monday, May 12 · Your 9-day streak is intact</p>
+                        <h1 id="greeting-name">Good morning</h1>
+                        <p class="subtitle" id="date-subtitle">Loading data...</p>
                     </div>
-                    <button class="btn-primary" onclick="switchTab('tab-checkin')"><i data-lucide="smile" size="18"></i> Check in now</button>
+                    <button class="btn-primary" onclick="switchTab('tab-journal')"><i data-lucide="smile" size="18"></i> Check in now</button>
                 </div>
 
-                <div class="grid-4">
+                <div class="grid-4 mt-4">
                     <div class="card">
-                        <div class="card-top"><p>Mood score</p> <i data-lucide="smile" class="icon-purple"></i></div>
-                        <h2>7.4</h2><p class="text-green text-sm">&uarr; 0.6 from yesterday</p>
+                        <div class="card-top"><p>Avg Mood Score</p> <i data-lucide="smile" class="icon-purple"></i></div>
+                        <h2 id="dash-mood-score">--</h2><p class="text-green text-sm">Out of 10</p>
                     </div>
                     <div class="card">
                         <div class="card-top"><p>Stress level</p> <i data-lucide="activity" class="icon-teal"></i></div>
-                        <h2>34%</h2><p class="text-teal text-sm">Low-moderate</p>
+                        <h2 id="dash-stress-level">--%</h2><p class="text-teal text-sm" id="dash-stress-text">Calculating...</p>
                     </div>
                     <div class="card">
-                        <div class="card-top"><p>Journal streak</p> <i data-lucide="book-open" class="icon-amber"></i></div>
-                        <h2>9 days</h2><p class="text-amber text-sm">Personal best</p>
+                        <div class="card-top"><p>Total Entries</p> <i data-lucide="book-open" class="icon-amber"></i></div>
+                        <h2 id="dash-entries">--</h2><p class="text-amber text-sm">Reflections saved</p>
                     </div>
                     <div class="card">
-                        <div class="card-top"><p>AI insights</p> <i data-lucide="brain-circuit" class="icon-purple"></i></div>
-                        <h2>23</h2><p class="text-muted text-sm">This month</p>
+                        <div class="card-top"><p>AI Insights</p> <i data-lucide="brain-circuit" class="icon-purple"></i></div>
+                        <h2 id="dash-insights">--</h2><p class="text-muted text-sm">Generated</p>
                     </div>
                 </div>
 
                 <div class="grid-2 mt-4">
                     <div class="card">
-                        <h3>Weekly mood trend</h3>
+                        <h3>Your Mood Trend</h3>
                         <div class="chart-wrapper"><canvas id="dashboardChart"></canvas></div>
                     </div>
                     <div class="card">
                         <h3>Stress level</h3>
-                        <p class="text-muted text-sm">Current reading</p>
+                        <p class="text-muted text-sm">Based on recent journals</p>
                         <div class="gauge-container">
-                            <h2 class="gauge-text">34%<br><span>STRESS</span></h2>
-                        </div>
-                        <div class="alert-box bg-teal-light mt-4">
-                            <b class="text-teal">Low-moderate</b><br>
-                            <span class="text-sm">Down 11% from last week</span>
+                            <h2 class="gauge-text" id="dash-stress-gauge">--%<br><span>STRESS</span></h2>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- MOOD CHECK-IN TAB -->
             <section id="tab-checkin" class="app-tab hidden fade-in">
                 <header class="header-row">
-                    <div><h1>Mood check-in</h1><p class="subtitle">How are you feeling right now?</p></div>
+                    <div><h1>Mood check-in</h1><p class="subtitle">Please use the Journal tab to allow the AI to detect your mood.</p></div>
                 </header>
-                <div class="card mt-4">
-                    <h3>SELECT YOUR MOOD</h3>
-                    <div class="mood-selector mt-2">
-                        <div class="mood-btn" onclick="selectMood(this, 'Thriving')"><i data-lucide="smile" class="text-green"></i> Thriving</div>
-                        <div class="mood-btn" onclick="selectMood(this, 'Good')"><i data-lucide="smile" class="text-teal"></i> Good</div>
-                        <div class="mood-btn" onclick="selectMood(this, 'Neutral')"><i data-lucide="meh" class="text-purple"></i> Neutral</div>
-                        <div class="mood-btn" onclick="selectMood(this, 'Low')"><i data-lucide="frown" class="text-amber"></i> Low</div>
-                        <div class="mood-btn" onclick="selectMood(this, 'Struggling')"><i data-lucide="frown" class="text-rose"></i> Struggling</div>
-                    </div>
-                </div>
-                <div class="card mt-4">
-                    <h3>WHAT'S INFLUENCING THIS?</h3>
-                    <div class="tags-container mt-2">
-                        <span class="tag">Work stress</span> <span class="tag">Poor sleep</span> <span class="tag">Exercise</span>
-                        <span class="tag">Social time</span> <span class="tag">Good nutrition</span> <span class="tag">Outdoors</span>
-                    </div>
-                </div>
+                <button class="btn-primary mt-4" onclick="switchTab('tab-journal')">Go to Journal</button>
             </section>
 
-            <!-- AI ANALYSIS TAB -->
             <section id="tab-analysis" class="app-tab hidden fade-in">
                 <header class="header-row">
-                    <div><h1>AI analysis</h1><p class="subtitle">Based on today's check-in</p></div>
+                    <div><h1>AI analysis</h1><p class="subtitle">Based on your latest journal entry</p></div>
                 </header>
                 <div class="banner-gradient mt-4">
                     <i data-lucide="brain-circuit" size="32"></i>
                     <div>
-                        <h3 id="analysis-title">Primarily content with residual anxiety</h3>
-                        <p id="analysis-desc">Your entry reflects a stable baseline with mild anticipatory stress. Contentment is dominant — this is a positive day relative to your 30-day average.</p>
+                        <h3 id="analysis-title">Awaiting Journal Entry</h3>
+                        <p id="analysis-desc">Write in your journal to receive AI-powered clinical insights about your emotional state.</p>
                     </div>
                 </div>
                 <div class="grid-2 mt-4">
                     <div class="card">
-                        <h3>Sentiment score</h3>
-                        <h1 class="text-center mt-4 text-green" id="sentiment-score-text">73%</h1>
-                        <p class="text-center text-sm font-bold">Positive sentiment</p>
-                    </div>
-                    <div class="card">
-                        <h3>Emotion breakdown</h3>
-                        <div class="progress-bars mt-4">
-                            <div class="bar-group"><label>Contentment</label><div class="bar"><div class="fill bg-purple" style="width: 38%"></div></div></div>
-                            <div class="bar-group"><label>Calm</label><div class="bar"><div class="fill bg-teal" style="width: 27%"></div></div></div>
-                            <div class="bar-group"><label>Anxiety</label><div class="bar"><div class="fill bg-amber" style="width: 18%"></div></div></div>
-                        </div>
+                        <h3>Sentiment detected</h3>
+                        <h1 class="text-center mt-4 text-green" id="sentiment-score-text">--</h1>
                     </div>
                 </div>
             </section>
 
-            <!-- JOURNAL TAB -->
             <section id="tab-journal" class="app-tab hidden fade-in">
                 <header class="header-row">
                     <div><h1>Journal</h1><p class="subtitle">Reflect on your day</p></div>
@@ -206,32 +163,23 @@
                 </div>
             </section>
 
-            <!-- REPORTS TAB -->
             <section id="tab-reports" class="app-tab hidden fade-in">
                 <header class="header-row">
-                    <div><h1>Reports & analytics</h1><p class="subtitle">Data through this week</p></div>
+                    <div><h1>Reports & analytics</h1><p class="subtitle">Your historical data</p></div>
                 </header>
-                <div class="grid-4 mt-4">
-                    <div class="card"><h3>AVG MOOD</h3><h1 class="text-purple">7.1/10</h1></div>
-                    <div class="card"><h3>7D CHANGE</h3><h1 class="text-green">&uarr; +1.6</h1></div>
-                    <div class="card"><h3>AVG STRESS</h3><h1 class="text-teal">38%</h1></div>
-                    <div class="card"><h3>WELLNESS SCORE</h3><h1 class="text-green">74/100</h1></div>
-                </div>
                 <div class="grid-2 mt-4">
                     <div class="card">
-                        <h3>Mood trend</h3>
+                        <h3>Historical Mood Trend</h3>
                         <div class="chart-wrapper"><canvas id="reportsLineChart"></canvas></div>
                     </div>
                     <div class="card">
-                        <h3>Emotion distribution</h3>
+                        <h3>Overall Emotion Distribution</h3>
                         <div class="chart-wrapper"><canvas id="reportsDoughnutChart"></canvas></div>
                     </div>
                 </div>
             </section>
-
         </main>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>

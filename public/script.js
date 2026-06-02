@@ -5,7 +5,6 @@ let currentUser = null;
 let moodHistory = [];
 let isLoginMode = true;
 
-// Chart Instances
 let dashChart, repLineChart, repDoughnutChart;
 
 // --- VIEW NAVIGATION ---
@@ -23,11 +22,6 @@ function switchTab(tabId) {
 
     if(tabId === 'tab-dashboard') updateDashboard();
     if(tabId === 'tab-reports') updateReports();
-}
-
-function selectMood(el, mood) {
-    document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
-    el.classList.add('selected');
 }
 
 // --- AUTHENTICATION ---
@@ -66,12 +60,14 @@ async function handleAuth() {
             // Set Dynamic User Names
             document.getElementById('user-avatar').innerText = username.charAt(0).toUpperCase();
             document.getElementById('display-username').innerText = username;
-            document.getElementById('greeting-name').innerText = `Good morning, ${username.split(' ')[0]}`;
+            
+            const timeOfDay = new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening';
+            document.getElementById('greeting-name').innerText = `Good ${timeOfDay}, ${username.split(' ')[0]}`;
             
             showView('app-screen');
             fetchHistory(); 
         } else {
-            errorText.innerText = result.error;
+            errorText.innerText = result.error || "Authentication failed.";
             errorText.classList.remove('hidden');
         }
     } catch (err) {
@@ -87,7 +83,7 @@ function logout() {
     showView('landing-page');
 }
 
-// --- DATA FETCHING ---
+// --- DATA FETCHING & DYNAMIC LOGIC ---
 async function submitJournal() {
     const text = document.getElementById('journal-input').value.trim();
     if (!text) return;
@@ -102,8 +98,17 @@ async function submitJournal() {
 
         if (result.success) {
             document.getElementById('journal-input').value = '';
-            switchTab('tab-analysis'); // Redirect to analysis
-            fetchHistory();
+            await fetchHistory(); // Fetch new data
+            
+            // Update AI Analysis tab specifically with the new entry
+            if(moodHistory.length > 0) {
+                const latest = moodHistory[0];
+                document.getElementById('analysis-title').innerText = `Primary Emotion: ${latest.sentiment}`;
+                document.getElementById('analysis-desc').innerText = `Our AI detected a ${latest.sentiment.toLowerCase()} emotional state based on your entry: "${latest.journal_text.substring(0, 50)}..."`;
+                document.getElementById('sentiment-score-text').innerText = latest.sentiment;
+                document.getElementById('sentiment-score-text').className = `text-center mt-4 ${latest.sentiment === 'Positive' ? 'text-green' : latest.sentiment === 'Negative' ? 'text-rose' : 'text-teal'}`;
+            }
+            switchTab('tab-analysis');
         }
     } catch (error) {
         console.error("Journal Error:", error);
@@ -116,41 +121,84 @@ async function fetchHistory() {
         const result = await response.json();
         if (result.success) {
             moodHistory = result.data;
-            updateDashboard();
+            calculateDynamicStats();
             updateJournalHistory();
+            if(!document.getElementById('tab-dashboard').classList.contains('hidden')) updateDashboard();
+            if(!document.getElementById('tab-reports').classList.contains('hidden')) updateReports();
         }
     } catch (error) {
         console.error("History Error:", error);
     }
 }
 
-// --- UI UPDATERS ---
-function updateJournalHistory() {
-    const container = document.getElementById('journal-history');
+function calculateDynamicStats() {
+    document.getElementById('date-subtitle').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    document.getElementById('dash-entries').innerText = moodHistory.length;
+    document.getElementById('dash-insights').innerText = moodHistory.length;
+    document.getElementById('sidebar-streak').innerText = `${moodHistory.length} entries total`;
+
     if (moodHistory.length === 0) {
-        container.innerHTML = '<p class="text-muted mt-4">No entries yet.</p>';
+        document.getElementById('dash-mood-score').innerText = "0.0";
+        document.getElementById('dash-stress-level').innerText = "0%";
+        document.getElementById('dash-stress-gauge').innerHTML = `0%<br><span>STRESS</span>`;
         return;
     }
 
-    container.innerHTML = moodHistory.map(log => `
+    // Dynamic Mood Score Calculation (Scale of 1-10 based on sentiment score)
+    let totalScore = 0;
+    let negativeCount = 0;
+    
+    moodHistory.forEach(log => {
+        // Map backend score (-2 to +2) to a 1-10 scale
+        const mappedScore = (log.score + 3) * 2; 
+        totalScore += (mappedScore > 10 ? 10 : mappedScore);
+        
+        if (log.sentiment === 'Negative') negativeCount++;
+    });
+
+    const avgMood = (totalScore / moodHistory.length).toFixed(1);
+    document.getElementById('dash-mood-score').innerText = avgMood;
+
+    // Dynamic Stress Calculation (Percentage based on negative sentiment ratio)
+    let stressPercentage = Math.round((negativeCount / moodHistory.length) * 100);
+    if(stressPercentage < 10) stressPercentage = 10; // Baseline formatting
+    
+    document.getElementById('dash-stress-level').innerText = `${stressPercentage}%`;
+    document.getElementById('dash-stress-gauge').innerHTML = `${stressPercentage}%<br><span>STRESS</span>`;
+    
+    let stressText = stressPercentage > 60 ? "High" : stressPercentage > 30 ? "Moderate" : "Low";
+    document.getElementById('dash-stress-text').innerText = stressText;
+}
+
+// --- UI RENDERERS ---
+function updateJournalHistory() {
+    const container = document.getElementById('journal-history');
+    if (moodHistory.length === 0) {
+        container.innerHTML = '<p class="text-muted mt-4">No entries yet. Write your first journal above!</p>';
+        return;
+    }
+
+    container.innerHTML = moodHistory.map(log => {
+        const mappedScore = (log.score + 3) * 2;
+        return `
         <div class="journal-entry">
             <div class="journal-entry-header">
                 <div style="display: flex; gap: 15px; align-items: center;">
-                    <div class="score-badge">${log.score > 0 ? '+' : ''}${log.score}</div>
+                    <div class="score-badge">${mappedScore}/10</div>
                     <div>
-                        <h4 class="font-bold">${log.sentiment}</h4>
+                        <h4 class="font-bold ${log.sentiment === 'Negative' ? 'text-rose' : 'text-green'}">${log.sentiment}</h4>
                         <p class="text-muted text-sm">${new Date(log.logged_at).toLocaleString()}</p>
                     </div>
                 </div>
             </div>
             <p class="mt-2 text-sm">${log.journal_text}</p>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function updateDashboard() {
-    const dates = moodHistory.map(log => new Date(log.logged_at).toLocaleDateString(undefined, {weekday: 'short'})).reverse();
-    const scores = moodHistory.map(log => log.score).reverse();
+    const dates = moodHistory.map(log => new Date(log.logged_at).toLocaleDateString(undefined, {weekday: 'short'})).reverse().slice(-7);
+    const scores = moodHistory.map(log => (log.score + 3) * 2).reverse().slice(-7); // Scale 1-10
 
     if (dashChart) dashChart.destroy();
     
@@ -158,18 +206,17 @@ function updateDashboard() {
     dashChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: dates.length ? dates : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+            labels: dates.length ? dates : ['No Data'],
             datasets: [{
-                data: scores.length ? scores : [0,0,0,0,0],
+                data: scores.length ? scores : [0],
                 borderColor: '#6366f1',
                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                borderWidth: 2,
+                borderWidth: 3,
                 tension: 0.4,
                 fill: true,
                 pointBackgroundColor: '#ffffff',
                 pointBorderColor: '#6366f1',
-                pointBorderWidth: 2,
-                pointRadius: 4
+                pointRadius: 5
             }]
         },
         options: {
@@ -177,25 +224,24 @@ function updateDashboard() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { display: false, min: -5, max: 5 },
-                x: { grid: { display: false }, border: {display: false} }
+                y: { min: 0, max: 10 },
+                x: { grid: { display: false } }
             }
         }
     });
 }
 
 function updateReports() {
-    // Line Chart
-    const dates = moodHistory.map(log => new Date(log.logged_at).toLocaleDateString(undefined, {weekday: 'short'})).reverse();
-    const scores = moodHistory.map(log => log.score).reverse();
+    const dates = moodHistory.map(log => new Date(log.logged_at).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})).reverse();
+    const scores = moodHistory.map(log => (log.score + 3) * 2).reverse();
 
     if (repLineChart) repLineChart.destroy();
     repLineChart = new Chart(document.getElementById('reportsLineChart').getContext('2d'), {
         type: 'line',
         data: {
-            labels: dates.length ? dates : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+            labels: dates.length ? dates : ['No Data'],
             datasets: [{
-                data: scores.length ? scores : [0,0,0,0,0],
+                data: scores.length ? scores : [0],
                 borderColor: '#6366f1',
                 borderWidth: 2,
                 tension: 0.4,
@@ -203,10 +249,9 @@ function updateReports() {
                 pointBorderColor: '#6366f1',
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 10 }, x: { grid: { display: false } } } }
     });
 
-    // Doughnut Chart
     let pos = 0, neg = 0, neu = 0;
     moodHistory.forEach(log => {
         if(log.sentiment === 'Positive') pos++;
@@ -218,10 +263,10 @@ function updateReports() {
     repDoughnutChart = new Chart(document.getElementById('reportsDoughnutChart').getContext('2d'), {
         type: 'doughnut',
         data: {
-            labels: ['Contentment', 'Anxiety', 'Neutral'],
+            labels: ['Positive', 'Negative', 'Neutral'],
             datasets: [{
                 data: moodHistory.length ? [pos, neg, neu] : [1,1,1],
-                backgroundColor: ['#6366f1', '#f59e0b', '#2dd4bf'],
+                backgroundColor: ['#22c55e', '#f43f5e', '#2dd4bf'],
                 borderWidth: 0,
                 cutout: '75%'
             }]
